@@ -2,6 +2,7 @@ use merge_json::Merge;
 use regex::{Captures, Regex};
 use serde_json::Value;
 use std::error::Error;
+use std::format;
 use std::fs::{self, File};
 use std::path::Path;
 
@@ -12,7 +13,7 @@ pub fn parse_and_merge(path: &Path) -> Result<Value, Box<dyn Error>> {
     for file in fs::read_dir(path)? {
         let file = file?.path();
 
-        if !file.extension().map_or(false, |x| x == "json") {
+        if file.extension().is_none_or(|x| x != "json") {
             continue;
         }
 
@@ -43,12 +44,13 @@ pub fn parse_and_merge(path: &Path) -> Result<Value, Box<dyn Error>> {
 /// 
 /// let input = "prefix (advancement_id) suffix";
 /// let output: String = String::from("prefix 2 suffix");
+///
 /// assert_eq!(&replace_with_progress(input, &j), &output);
 /// ```
 pub fn replace_with_progress(string: &str, json: &Value) -> String {
     let re = Regex::new(r"(\(.+\))").unwrap();
 
-    re.replace_all(&string, |caps: &Captures| {
+    re.replace_all(string, |caps: &Captures| {
         let s = &caps[0][1..caps[0].len() - 1];
 
         match get_progress(json, s) {
@@ -75,17 +77,22 @@ pub fn replace_with_progress(string: &str, json: &Value) -> String {
 ///     }
 /// });
 ///
-/// assert_eq!(get_progress(&j, "advancement_id"), Ok(2));
-/// assert_eq!(get_progress(&j, "blah"), Err(()));
+/// assert!(get_progress(&j, "advancement_id").is_ok_and(|x| x == 2usize));
+/// assert!(get_progress(&j, "blah").is_err());
 /// ```
-pub fn get_progress(json: &Value, adv_id: &str) -> Result<usize, ()> {
-    let json = json.get(&adv_id).ok_or(())?;
+pub fn get_progress(json: &Value, adv_id: &str) -> Result<usize, Box<dyn Error>> {
+    let json = json.get(adv_id).ok_or(Box::<dyn Error>::from(format!(
+        "couldn't find advancement {}",
+        adv_id
+    )))?;
 
-    let criteria = json
-        .get("criteria")
-        .map(Value::as_object)
-        .flatten()
-        .ok_or(())?;
+    let criteria =
+        json.get("criteria")
+            .and_then(Value::as_object)
+            .ok_or(Box::<dyn Error>::from(format!(
+                "key 'criteria' not found for advancement {}",
+                adv_id
+            )))?;
 
     Ok(criteria.iter().count())
 }
@@ -113,8 +120,8 @@ mod tests {
     fn get_progress_test() {
         let j = test_json();
 
-        assert_eq!(get_progress(&j, "advancement"), Ok(2usize));
-        assert_eq!(get_progress(&j, "blah"), Err(()));
+        assert!(get_progress(&j, "advancement").is_ok_and(|x| x == 2usize));
+        assert!(get_progress(&j, "blah").is_err());
     }
 
     #[test]
@@ -153,7 +160,7 @@ mod tests {
 
         let j = json!({"advancement": {"criteria": {"first":0, "second": 0}}});
 
-        assert_eq!(&(parse_and_merge(&path)?), &j);
+        assert_eq!(&(parse_and_merge(path)?), &j);
 
         Ok(())
     }
