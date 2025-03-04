@@ -10,6 +10,7 @@ serde_json = "1.0.139"
 serenity = { version = "0.12.4", features = ["interactions_endpoint"] }
 tokio = { version = "1.43.0", features = ["full"] }
 merge_json = { git = "https://github.com/p1k0chu/merge-json-rs.git" }
+notify = "8.0.0"
 
 [dev-dependencies]
 tempdir = "0.3.7"
