@@ -3,22 +3,23 @@ use regex::{Captures, Regex};
 use serde_json::Value;
 use std::error::Error;
 use std::format;
-use std::fs::{self, File};
+use tokio::fs;
 use std::path::Path;
 
 /// Parses all json files from the folder specified by `path` and merges them
-pub fn parse_and_merge(path: &Path) -> Result<Value, Box<dyn Error>> {
+pub async fn parse_and_merge(path: &Path) -> Result<Value, Box<dyn Error>> {
     let mut result = Value::Null;
 
-    for file in fs::read_dir(path)? {
-        let file = file?.path();
+    let mut stream = fs::read_dir(path).await?;
+    while let Some(file) = stream.next_entry().await? {
+        let file = file.path();
 
         if file.extension().is_none_or(|x| x != "json") {
             continue;
         }
 
-        let reader = File::open(file)?;
-        let j: Value = serde_json::from_reader(&reader)?;
+        let content = fs::read_to_string(file).await?;
+        let j: Value = serde_json::from_str(&content)?;
 
         result.merge(&j);
     }
@@ -99,8 +100,6 @@ pub fn get_progress(json: &Value, adv_id: &str) -> Result<usize, Box<dyn Error>>
 
 #[cfg(test)]
 mod tests {
-    use std::fs::OpenOptions;
-
     use super::*;
     use serde_json::json;
     use tempdir::TempDir;
@@ -132,35 +131,23 @@ mod tests {
         assert_eq!(&replace_with_progress(input, &test_json()), &output);
     }
 
-    #[test]
-    fn parse_and_merge_test() -> Result<(), Box<dyn Error>> {
+    #[tokio::test]
+    async fn parse_and_merge_test() -> Result<(), Box<dyn Error>> {
         // name doesn't matter
         let dir = TempDir::new("advancements")?;
         let path = dir.path();
 
         let j = json!({"advancement": {"criteria": {"first": 0}}});
-        serde_json::to_writer(
-            OpenOptions::new()
-                .write(true)
-                .create(true)
-                .open(path.join("file1.json"))?,
-            &j,
-        )?;
+        fs::write(path.join("file1.json"), serde_json::to_string(&j)?).await?;
 
         let j = json!({"advancement": {"criteria": {"second": 0}}});
-        serde_json::to_writer(
-            OpenOptions::new()
-                .write(true)
-                .create(true)
-                .open(path.join("file2.json"))?,
-            &j,
-        )?;
+        fs::write(path.join("file2.json"), serde_json::to_string(&j)?).await?;
 
-        fs::write(path.join("non-json-file.txt"), "Hello world!")?;
+        fs::write(path.join("non-json-file.txt"), "Hello world!").await?;
 
         let j = json!({"advancement": {"criteria": {"first":0, "second": 0}}});
 
-        assert_eq!(&(parse_and_merge(path)?), &j);
+        assert_eq!(&(parse_and_merge(path).await?), &j);
 
         Ok(())
     }
