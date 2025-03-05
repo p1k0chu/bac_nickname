@@ -4,7 +4,30 @@ use serde_json::Value;
 use std::error::Error;
 use std::format;
 use tokio::fs;
+use std::ops::Deref;
 use std::path::Path;
+use tokio::sync::mpsc::Sender;
+use notify::EventHandler;
+
+pub mod api;
+
+pub struct AsyncSender(pub Sender<notify::Event>);
+
+impl Deref for AsyncSender {
+    type Target = Sender<notify::Event>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl EventHandler for AsyncSender {
+    fn handle_event(&mut self, event: notify::Result<notify::Event>) {
+        if let Ok(event) = event {
+            self.0.blocking_send(event).unwrap();
+        }
+    }
+}
 
 /// Parses all json files from the folder specified by `path` and merges them
 pub async fn parse_and_merge(path: &Path) -> Result<Value, Box<dyn Error>> {
