@@ -109,7 +109,7 @@ async fn nicknames_receiver(token: String, servers: Vec<u64>, mut rx: Receiver<S
 }
 
 async fn make_nickname(adv_dir: String, nickname_template: String, tx: Sender<String>) {
-    let json_obj = match bac_nickname::parse_and_merge(&Path::new(&adv_dir)).await {
+    let json_obj = match bac_nickname::parse_and_merge(Path::new(&adv_dir)).await {
         Ok(x) => x,
         Err(e) => {
             eprintln!("{e}");
