@@ -58,7 +58,7 @@ pub async fn post(url: String, token: String, json: Value) -> Option<StatusCode>
                     return Some(status);
                 };
 
-                println!("Rate limited, waiting {} seconds", duration.as_secs_f64());
+                eprintln!("Rate limited, waiting {} seconds", duration.as_secs_f64());
                 tokio::time::sleep(duration).await;
             }
             _ => return Some(status),

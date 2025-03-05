@@ -72,28 +72,43 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 async fn nicknames_receiver(token: String, servers: Vec<u64>, mut rx: Receiver<String>) {
     while let Some(nickname) = rx.recv().await {
-        dbg!(&nickname);
-
         let mut handles = Vec::new();
 
         for server in &servers {
             let body = json!({"nick": nickname});
             let url = format!("https://discord.com/api/v10/guilds/{}/members/@me", server);
-            dbg!(&url);
-            dbg!(&body);
-            handles.push(tokio::spawn(api::post(url.clone(), token.clone(), body.clone())));
+            handles.push(tokio::spawn(api::post(
+                url.clone(),
+                token.clone(),
+                body.clone(),
+            )));
         }
 
         for handle in handles {
             if let Ok(Some(code)) = handle.await {
-                println!("{}", code);
+                if !code.is_success() {
+                    match code.as_u16() {
+                        401 => {
+                            println!("Invalid toke!");
+                        }
+                        403 => {
+                            println!(
+                                "Dont have permission to change nickname in server (i with i knew which one)"
+                            );
+                        }
+                        x => {
+                            println!("Error code: HTTP {x}");
+                        }
+                    }
+
+                    std::process::exit(1);
+                }
             }
         }
     }
 }
 
 async fn make_nickname(adv_dir: String, nickname_template: String, tx: Sender<String>) {
-    println!("Nickname maker!");
     let json_obj = match bac_nickname::parse_and_merge(&Path::new(&adv_dir)).await {
         Ok(x) => x,
         Err(e) => {
