@@ -25,7 +25,6 @@ pub async fn post(url: String, token: String, json: Value) -> Option<StatusCode>
             }
         };
         let status = res.status();
-        dbg!(&status);
 
         match status.as_u16() {
             429 => {
@@ -49,7 +48,7 @@ pub async fn post(url: String, token: String, json: Value) -> Option<StatusCode>
                         Some(x) => Duration::from_secs_f64(x),
                         None => {
                             eprintln!(
-                                "discord api trolling it sent either negative rate limit or 10 lifetimes"
+                                "discord api trolling, it sent either negative rate limit or 10 lifetimes"
                             );
                             return Some(status);
                         }
