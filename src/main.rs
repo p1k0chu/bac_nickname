@@ -89,7 +89,7 @@ async fn nicknames_receiver(token: String, servers: Vec<u64>, mut rx: Receiver<S
                 if !code.is_success() {
                     match code.as_u16() {
                         401 => {
-                            println!("Invalid toke!");
+                            println!("Invalid token!");
                         }
                         403 => {
                             println!(
